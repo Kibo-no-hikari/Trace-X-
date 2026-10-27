@@ -28,14 +28,22 @@ import api from '../services/api';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 
 export default function Dashboard() {
-  const [selectedEvent, setSelectedEvent] = useState(DEMO_EVENTS[0]);
-  const [isDemoModalOpen, setIsDemoModalOpen] = useState(false);
-  const [backendMode, setBackendMode] = useState('SYNTHETIC_DEMO');
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const [backendMode, setBackendMode] = useState('CHECKING');
+  const [isDemoModalOpen, setIsDemoModalOpen] = useState(false);
+  const [selectedEvent, setSelectedEvent] = useState(DEMO_EVENTS[0]);
+  const [summary, setSummary] = useState({
+    evidence_source_count: 4,
+    total_event_count: 20082,
+    relationships_count: 3,
+    status: 'Active Review',
+    isSynthetic: true
+  });
+  const [timelineEvents, setTimelineEvents] = useState(DEMO_EVENTS);
 
   useEffect(() => {
-    if (searchParams.get('demo') === 'true') {
+    if (searchParams && searchParams.get('demo') === 'true') {
       setIsDemoModalOpen(true);
     }
   }, [searchParams]);
@@ -43,6 +51,18 @@ export default function Dashboard() {
   useEffect(() => {
     api.checkBackendHealth().then((res) => {
       setBackendMode(res.mode);
+      if (res.connected && res.databaseConnected) {
+        api.getInvestigationSummary().then((sum) => {
+          if (sum) setSummary(sum);
+        });
+        api.getTimelineEvents().then((timelineRes) => {
+          const evts = (timelineRes && (timelineRes.events || timelineRes.data)) || [];
+          if (evts.length > 0) {
+            setTimelineEvents(evts);
+            setSelectedEvent(evts[0]);
+          }
+        });
+      }
     });
   }, []);
 
@@ -104,8 +124,8 @@ export default function Dashboard() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <StatCard
               title="Evidence Sources"
-              value="4 Files"
-              subtext="12.8 MB total ingested logs"
+              value={`${summary.evidence_source_count || 4} Files`}
+              subtext="Normalized multi-source logs"
               trend="SHA-256 Validated"
               icon={Database}
               variant="cyan"
@@ -113,17 +133,17 @@ export default function Dashboard() {
 
             <StatCard
               title="Total Events"
-              value="20,082"
+              value={(summary.total_event_count || 20082).toLocaleString()}
               subtext="Normalized to UTC chronology"
-              trend="4 Key Incident Events"
+              trend={`${timelineEvents.length} Key Incident Events`}
               icon={GitCommitVertical}
               variant="violet"
             />
 
             <StatCard
               title="Potentially Related"
-              value="3 Links"
-              subtext="2 Likely • 1 Unknown Payload"
+              value={`${summary.relationships_count || 3} Links`}
+              subtext="Explainable correlation"
               trend="Correlation Active"
               icon={Share2}
               variant="amber"
@@ -131,9 +151,9 @@ export default function Dashboard() {
 
             <StatCard
               title="Investigation Status"
-              value="Active Review"
+              value={summary.status || "Active Review"}
               subtext="No Evidence, No Claim"
-              trend="Egress Unconfirmed"
+              trend="Forensic Guard Active"
               icon={Shield}
               variant="emerald"
             />
@@ -171,7 +191,7 @@ export default function Dashboard() {
               </div>
 
               <EventTimeline
-                events={DEMO_EVENTS}
+                events={timelineEvents}
                 selectedEventId={selectedEvent?.id}
                 onSelectEvent={(evt) => setSelectedEvent(evt)}
                 showWarning={true}

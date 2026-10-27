@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
   UploadCloud,
@@ -18,11 +18,21 @@ import InteractiveDemoModal from '../components/demo/InteractiveDemoModal';
 import { DEMO_EVIDENCE_FILES } from '../data/demoEvidence';
 import Button from '../components/ui/Button';
 
+import api from '../services/api';
+
 export default function EvidenceImport() {
   const [evidenceFiles, setEvidenceFiles] = useState(DEMO_EVIDENCE_FILES);
   const [isDemoModalOpen, setIsDemoModalOpen] = useState(false);
   const [uploadMessage, setUploadMessage] = useState(null);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    api.getEvidenceFiles().then((res) => {
+      if (res && res.data && res.data.length > 0) {
+        setEvidenceFiles(res.data);
+      }
+    });
+  }, []);
 
   const handleEvidenceUploaded = (newFiles, mode) => {
     setEvidenceFiles((prev) => [...newFiles, ...prev]);

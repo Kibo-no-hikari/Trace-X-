@@ -76,7 +76,7 @@ export default function EventDetails({ event, onClose, onSelectRelated }) {
           <span className="text-slate-400 text-[10px] uppercase tracking-wider block">Timestamp</span>
           <span className="text-cyan-300 font-semibold flex items-center gap-1 mt-0.5">
             <Clock className="w-3 h-3 text-cyan-400" />
-            {event.displayTime}
+            {event.displayTime || (event.timestamp ? formatTimestamp(event.timestamp) : '--:-- UTC')}
           </span>
         </div>
 
@@ -84,7 +84,7 @@ export default function EventDetails({ event, onClose, onSelectRelated }) {
           <span className="text-slate-400 text-[10px] uppercase tracking-wider block">Evidence File</span>
           <span className="text-violet-300 font-semibold flex items-center gap-1 mt-0.5 truncate">
             <FileCode className="w-3 h-3 text-violet-400 shrink-0" />
-            {event.sourceFile}
+            {event.sourceFile || event.source_filename || 'System Log'}
           </span>
         </div>
 
@@ -98,7 +98,7 @@ export default function EventDetails({ event, onClose, onSelectRelated }) {
         <div>
           <span className="text-slate-400 text-[10px] uppercase tracking-wider block">Event Category</span>
           <span className="text-slate-200 mt-0.5 block truncate">
-            {event.category}
+            {event.category || 'SYSTEM'}
           </span>
         </div>
       </div>
@@ -109,7 +109,7 @@ export default function EventDetails({ event, onClose, onSelectRelated }) {
           Forensic Finding
         </span>
         <div className="p-3 rounded-xl bg-slate-900/80 border border-slate-800 text-xs text-slate-200 leading-relaxed font-sans">
-          {event.findings || event.details}
+          {event.findings || event.details || event.description || 'Action recorded in telemetry stream.'}
         </div>
       </div>
 
@@ -120,7 +120,7 @@ export default function EventDetails({ event, onClose, onSelectRelated }) {
           <span>Evidence Limitations</span>
         </div>
         <div className="p-3 rounded-xl bg-amber-500/5 border border-amber-500/20 text-xs text-amber-200/90 leading-relaxed font-sans">
-          {event.limitations}
+          {event.limitations || 'Single telemetry event. Further multi-source artifact corroboration required.'}
         </div>
       </div>
 
@@ -148,7 +148,7 @@ export default function EventDetails({ event, onClose, onSelectRelated }) {
         </div>
 
         <pre className="p-3 rounded-xl bg-[#04060d] border border-cyan-500/20 text-[11px] font-mono text-cyan-300 overflow-x-auto whitespace-pre-wrap leading-tight">
-          {event.rawRecord || event.details}
+          {event.rawRecord || event.raw_record || event.details || event.description || JSON.stringify(event, null, 2)}
         </pre>
       </div>
 

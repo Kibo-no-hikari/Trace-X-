@@ -1,9 +1,10 @@
-import { useState, useRef, useMemo, Suspense } from 'react';
+import { useState, useEffect, useRef, useMemo, Suspense } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls, Html, Float } from '@react-three/drei';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import * as THREE from 'three';
+import api from '../../services/api';
 import {
   GitCommitVertical,
   Shield,
@@ -78,8 +79,12 @@ function GraphNode({
     }
   });
 
+  const coords = Array.isArray(event.coordinates) && event.coordinates.length === 3
+    ? event.coordinates
+    : [0, 0, 0];
+
   return (
-    <group position={event.coordinates}>
+    <group position={coords}>
       {/* Halo for selected / active node */}
       {(isSelected || hovered) && (
         <mesh>
@@ -152,13 +157,20 @@ function GraphEdge({ correlation, nodesMap }) {
   const sourceNode = nodesMap[correlation.sourceEventId];
   const targetNode = nodesMap[correlation.targetEventId];
 
+  const srcCoords = sourceNode && Array.isArray(sourceNode.coordinates) && sourceNode.coordinates.length === 3
+    ? sourceNode.coordinates
+    : [0, 0, 0];
+  const tgtCoords = targetNode && Array.isArray(targetNode.coordinates) && targetNode.coordinates.length === 3
+    ? targetNode.coordinates
+    : [0, 0, 0];
+
   const points = useMemo(() => {
     if (!sourceNode || !targetNode) return null;
     return [
-      new THREE.Vector3(...sourceNode.coordinates),
-      new THREE.Vector3(...targetNode.coordinates)
+      new THREE.Vector3(...srcCoords),
+      new THREE.Vector3(...tgtCoords)
     ];
-  }, [sourceNode, targetNode]);
+  }, [sourceNode, targetNode, srcCoords, tgtCoords]);
 
   const geometry = useMemo(() => {
     if (!points) return null;
@@ -172,9 +184,9 @@ function GraphEdge({ correlation, nodesMap }) {
 
   // Middle position for HTML relationship label
   const midPoint = [
-    (sourceNode.coordinates[0] + targetNode.coordinates[0]) / 2,
-    (sourceNode.coordinates[1] + targetNode.coordinates[1]) / 2 + 0.15,
-    (sourceNode.coordinates[2] + targetNode.coordinates[2]) / 2,
+    (srcCoords[0] + tgtCoords[0]) / 2,
+    (srcCoords[1] + tgtCoords[1]) / 2 + 0.15,
+    (srcCoords[2] + tgtCoords[2]) / 2,
   ];
 
   return (
@@ -190,8 +202,8 @@ function GraphEdge({ correlation, nodesMap }) {
 
       {/* Traveling flow particle */}
       <EdgeParticle
-        start={sourceNode.coordinates}
-        end={targetNode.coordinates}
+        start={srcCoords}
+        end={tgtCoords}
         color={edgeColor}
         speed={isUnknown ? 0.3 : 0.6}
       />
@@ -208,38 +220,53 @@ function GraphEdge({ correlation, nodesMap }) {
 
 export default function CorrelationGraph() {
   const navigate = useNavigate();
+  const [graphNodes, setGraphNodes] = useState(DEMO_EVENTS);
+  const [graphLinks, setGraphLinks] = useState(DEMO_CORRELATIONS);
   const [selectedEvent, setSelectedEvent] = useState(DEMO_EVENTS[0]);
   const [filterCategory, setFilterCategory] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
 
+  useEffect(() => {
+    api.getCorrelationNetwork().then((res) => {
+      if (res && res.nodes && res.nodes.length > 0) {
+        setGraphNodes(res.nodes);
+        setSelectedEvent(res.nodes[0]);
+      }
+      if (res && res.links && res.links.length > 0) {
+        setGraphLinks(res.links);
+      }
+    });
+  }, []);
+
   // Map nodes by ID for fast lookup
   const nodesMap = useMemo(() => {
     const map = {};
-    DEMO_EVENTS.forEach((e) => {
+    graphNodes.forEach((e) => {
       map[e.id] = e;
     });
     return map;
-  }, []);
+  }, [graphNodes]);
 
   // Filter events based on UI controls
   const filteredEvents = useMemo(() => {
-    return DEMO_EVENTS.filter((e) => {
+    return graphNodes.filter((e) => {
       const matchesCategory = filterCategory === 'ALL' || e.category === filterCategory;
-      const matchesSearch =
-        e.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        e.sourceFile.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        e.eventType.toLowerCase().includes(searchQuery.toLowerCase());
+      const q = (searchQuery || '').toLowerCase();
+      const title = (e.title || '').toLowerCase();
+      const sourceFile = (e.sourceFile || e.source_filename || '').toLowerCase();
+      const eventType = (e.eventType || e.event_type || '').toLowerCase();
+      const matchesSearch = title.includes(q) || sourceFile.includes(q) || eventType.includes(q);
       return matchesCategory && matchesSearch;
     });
-  }, [filterCategory, searchQuery]);
+  }, [graphNodes, filterCategory, searchQuery]);
 
   // Find relationships for selected event
   const relatedCorrelations = useMemo(() => {
     if (!selectedEvent) return [];
-    return DEMO_CORRELATIONS.filter(
+    return graphLinks.filter(
       (c) => c.sourceEventId === selectedEvent.id || c.targetEventId === selectedEvent.id
     );
-  }, [selectedEvent]);
+  }, [selectedEvent, graphLinks]);
 
   return (
     <div className="relative w-full h-full flex flex-col bg-[#050811] overflow-hidden select-none">
@@ -263,7 +290,7 @@ export default function CorrelationGraph() {
               3D Forensic Correlation Graph
             </span>
             <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-cyan-950/80 text-cyan-300 border border-cyan-500/30">
-              {DEMO_EVENTS.length} Evidence Nodes • {DEMO_CORRELATIONS.length} Validated Edges
+              {graphNodes.length} Evidence Nodes • {graphLinks.length} Validated Edges
             </span>
           </div>
         </div>
@@ -320,7 +347,7 @@ export default function CorrelationGraph() {
           <Suspense fallback={null}>
             <group>
               {/* Render edges */}
-              {DEMO_CORRELATIONS.map((corr) => (
+              {graphLinks.map((corr) => (
                 <GraphEdge
                   key={corr.id}
                   correlation={corr}
@@ -329,7 +356,7 @@ export default function CorrelationGraph() {
               ))}
 
               {/* Render nodes */}
-              {DEMO_EVENTS.map((evt) => {
+              {graphNodes.map((evt) => {
                 const isFiltered = !filteredEvents.some((f) => f.id === evt.id);
                 return (
                   <GraphNode

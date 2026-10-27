@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
   Printer,
@@ -20,11 +20,23 @@ import { DEMO_EVENTS, DEMO_CORRELATIONS, FORENSIC_WARNING } from '../../data/dem
 import { DEMO_EVIDENCE_FILES } from '../../data/demoEvidence';
 import { getClassificationBadge, getSeverityBadge } from '../../utils/formatTimestamp';
 import Button from '../ui/Button';
+import api from '../../services/api';
 
-export default function ReportViewer() {
+export default function ReportViewer({ initialReport = null }) {
   const [copiedSummary, setCopiedSummary] = useState(false);
+  const [liveReport, setLiveReport] = useState(initialReport);
 
-  const reportData = {
+  useEffect(() => {
+    if (!initialReport) {
+      api.generateReport().then((res) => {
+        if (res && res.timelineEvents && res.timelineEvents.length > 0) {
+          setLiveReport(res);
+        }
+      });
+    }
+  }, [initialReport]);
+
+  const defaultReportData = {
     caseId: 'TRX-2026-OCT27-01',
     classificationLevel: 'CONFIDENTIAL // FORENSIC SENSITIVE',
     investigationTitle: 'Attack Timeline Reconstruction & Egress Telemetry Analysis',
@@ -82,6 +94,23 @@ export default function ReportViewer() {
     conclusion: 'The available evidence chronologically establishes an authentication burst, a successful entry from the same IP, access to a confidential spreadsheet, and a large outbound network transfer. In strict accordance with the "No Evidence, No Claim" forensic doctrine, exfiltration is suspected but CANNOT be asserted as established fact without payload decryption or endpoint staging artifacts.'
   };
 
+  const reportData = liveReport ? {
+    caseId: liveReport.reportId || liveReport.id || defaultReportData.caseId,
+    classificationLevel: 'CONFIDENTIAL // FORENSIC SENSITIVE',
+    investigationTitle: liveReport.report_title || liveReport.title || defaultReportData.investigationTitle,
+    investigator: liveReport.investigator || defaultReportData.investigator,
+    status: liveReport.status || defaultReportData.status,
+    generatedDate: liveReport.generatedAt || liveReport.generated_at || defaultReportData.generatedDate,
+    tagline: liveReport.tagline || defaultReportData.tagline,
+    corePrinciple: liveReport.corePrinciple || defaultReportData.corePrinciple,
+    evidenceSources: liveReport.evidenceSources || defaultReportData.evidenceSources,
+    events: liveReport.timelineEvents || defaultReportData.events,
+    correlations: liveReport.correlations || defaultReportData.correlations,
+    recordedFindings: liveReport.recordedFindings || defaultReportData.recordedFindings,
+    limitations: liveReport.limitations || defaultReportData.limitations,
+    conclusion: liveReport.conclusion || defaultReportData.conclusion,
+  } : defaultReportData;
+
   const handlePrint = () => {
     window.print();
   };
@@ -99,11 +128,15 @@ export default function ReportViewer() {
   };
 
   const handleCopySummary = () => {
+    const eventsCount = (reportData.events || []).length;
+    const findingsText = (reportData.recordedFindings || [])
+      .map((f) => `\n- [${f.classification || 'FACT'}] ${f.title || ''}: ${f.details || ''}`)
+      .join('');
     const summaryText = `[TraceX Forensic Incident Report: ${reportData.caseId}]
 Status: ${reportData.status}
 Principle: "${reportData.corePrinciple}"
-Events Reconstructed: ${reportData.events.length}
-Findings: ${reportData.recordedFindings.map((f) => `\n- [${f.classification}] ${f.title}: ${f.details}`).join('')}
+Events Reconstructed: ${eventsCount}
+Findings: ${findingsText}
 Conclusion: ${reportData.conclusion}`;
 
     navigator.clipboard.writeText(summaryText);

@@ -25,12 +25,15 @@ export default function EvidenceList({
   const [copiedHash, setCopiedHash] = useState(null);
   const navigate = useNavigate();
 
-  const filteredFiles = files.filter((f) => {
-    const q = searchQuery.toLowerCase();
+  const filteredFiles = (files || []).filter((f) => {
+    const q = (searchQuery || '').toLowerCase();
+    const fileName = (f.fileName || f.original_filename || '').toLowerCase();
+    const category = (f.category || '').toLowerCase();
+    const sourceHost = (f.sourceHost || '').toLowerCase();
     return (
-      f.fileName.toLowerCase().includes(q) ||
-      f.category.toLowerCase().includes(q) ||
-      f.sourceHost.toLowerCase().includes(q)
+      fileName.includes(q) ||
+      category.includes(q) ||
+      sourceHost.includes(q)
     );
   });
 

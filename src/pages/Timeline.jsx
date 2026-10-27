@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   GitCommitVertical,
@@ -19,6 +19,7 @@ import EventDetails from '../components/dashboard/EventDetails';
 import InteractiveDemoModal from '../components/demo/InteractiveDemoModal';
 import { DEMO_EVENTS } from '../data/demoEvents';
 import Button from '../components/ui/Button';
+import api from '../services/api';
 
 export default function Timeline() {
   const [events, setEvents] = useState(DEMO_EVENTS);
@@ -28,6 +29,18 @@ export default function Timeline() {
   const [searchQuery, setSearchQuery] = useState('');
   const navigate = useNavigate();
 
+  useEffect(() => {
+    api.getTimelineEvents().then((res) => {
+      const evts = (res && (res.events || res.data)) || [];
+      if (evts.length > 0) {
+        setEvents(evts);
+        setSelectedEvent(evts[0]);
+      }
+    }).catch((err) => {
+      console.warn('Failed to load timeline events:', err);
+    });
+  }, []);
+
   const handleToggleSort = () => {
     const nextOrder = sortOrder === 'asc' ? 'desc' : 'asc';
     setSortOrder(nextOrder);
@@ -35,12 +48,18 @@ export default function Timeline() {
   };
 
   const filteredEvents = events.filter((e) => {
-    const q = searchQuery.toLowerCase();
+    const q = (searchQuery || '').toLowerCase();
+    const title = (e.title || '').toLowerCase();
+    const sourceFile = (e.sourceFile || e.source_filename || '').toLowerCase();
+    const details = (e.details || e.findings || e.description || '').toLowerCase();
+    const rawRecord = (e.rawRecord || e.raw_record || '').toLowerCase();
+    const sourceHost = (e.sourceHost || '').toLowerCase();
     return (
-      e.title.toLowerCase().includes(q) ||
-      e.sourceFile.toLowerCase().includes(q) ||
-      e.details.toLowerCase().includes(q) ||
-      e.rawRecord.toLowerCase().includes(q)
+      title.includes(q) ||
+      sourceFile.includes(q) ||
+      details.includes(q) ||
+      rawRecord.includes(q) ||
+      sourceHost.includes(q)
     );
   });
 

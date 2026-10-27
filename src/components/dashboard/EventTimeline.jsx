@@ -34,15 +34,16 @@ export default function EventTimeline({
 
   // Available unique sources
   const availableSources = useMemo(() => {
-    const sources = new Set(events.map((e) => e.sourceFile));
+    const sources = new Set((events || []).map((e) => e.sourceFile || e.source_filename || 'System Log'));
     return ['ALL', ...Array.from(sources)];
   }, [events]);
 
   // Filtered events
   const filteredEvents = useMemo(() => {
-    return events.filter((evt) => {
+    return (events || []).filter((evt) => {
       const matchCat = categoryFilter === 'ALL' || evt.category === categoryFilter;
-      const matchSrc = sourceFilter === 'ALL' || evt.sourceFile === sourceFilter;
+      const sFile = evt.sourceFile || evt.source_filename || 'System Log';
+      const matchSrc = sourceFilter === 'ALL' || sFile === sourceFilter;
       return matchCat && matchSrc;
     });
   }, [events, categoryFilter, sourceFilter]);
@@ -187,7 +188,7 @@ export default function EventTimeline({
                       <div className="flex items-center gap-2">
                         <span className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-mono font-bold bg-cyan-950/80 text-cyan-300 border border-cyan-500/40">
                           <Clock className="w-3 h-3 text-cyan-400" />
-                          {evt.displayTime}
+                          {evt.displayTime || (evt.timestamp ? formatTimestamp(evt.timestamp) : '--:-- UTC')}
                         </span>
 
                         <span
@@ -207,7 +208,7 @@ export default function EventTimeline({
                       <div className="flex items-center gap-2">
                         <span className="flex items-center gap-1 text-xs font-mono text-slate-400 bg-slate-950 px-2 py-0.5 rounded border border-slate-800">
                           <FileCode className="w-3 h-3 text-violet-400" />
-                          {evt.sourceFile}
+                          {evt.sourceFile || evt.source_filename || 'System Log'}
                         </span>
                         <ChevronRight
                           className={`w-4 h-4 transition-transform text-slate-500 group-hover:text-cyan-400 ${
@@ -294,13 +295,13 @@ export default function EventTimeline({
                     }`}
                   >
                     <td className="py-3 px-4 font-bold text-cyan-400">{evt.id}</td>
-                    <td className="py-3 px-4 whitespace-nowrap text-slate-200 font-semibold">{evt.displayTime}</td>
+                    <td className="py-3 px-4 whitespace-nowrap text-slate-200 font-semibold">{evt.displayTime || (evt.timestamp ? formatTimestamp(evt.timestamp) : '--:-- UTC')}</td>
                     <td className="py-3 px-4">
                       <span className={`px-2 py-0.5 rounded text-[10px] border ${classification.bg} ${classification.border} ${classification.text}`}>
                         {classification.label}
                       </span>
                     </td>
-                    <td className="py-3 px-4 font-mono text-violet-300">{evt.sourceFile}</td>
+                    <td className="py-3 px-4 font-mono text-violet-300">{evt.sourceFile || evt.source_filename || 'System Log'}</td>
                     <td className="py-3 px-4 max-w-xs font-sans text-white font-medium truncate">{evt.title}</td>
                     <td className="py-3 px-4">
                       <span className={`px-2 py-0.5 rounded text-[10px] border ${severity.bg} ${severity.border} ${severity.color}`}>
